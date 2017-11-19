@@ -35,7 +35,7 @@ def window(x):
 
 
 bands = [60, 120, 240, 480, 960, 1920, 3840, 7680, 15360, 30720]
-
+import random
 def processChunk(block, chunkSize):
     # Transform input string into a list of integers and complete to a power of 2
     chunkList = array.array("H", block).tolist()
@@ -51,4 +51,8 @@ def processChunk(block, chunkSize):
     #for band in bands:
     #    bandY = numpy.convolve(x, window() * filter(band))
     #    y += bandY
-    return processedBlock
+    #samples = [1] * 12
+    samples = []
+    for i in range(12):
+        samples.append(random.randrange(1.0, 100.0, 10.0, int))
+    return [processedBlock, samples]
