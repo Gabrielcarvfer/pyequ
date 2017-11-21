@@ -12,7 +12,19 @@
   }, 100);
 
 </script>
-
+<!--script type="text/javascript">
+$(document).ready(function() {
+    $('form[name=play]').submit(function(e){
+        e.preventDefault();
+        $.ajax({
+            type: 'POST',
+            cache: false,
+            url: '/play',
+            data: 'music=$(this).serialize()
+        });
+    });
+});
+</script-->
 <script>
  document.getElementById("playAudio").addEventListener("click", function(){
       if(this.className == 'is-playing'){
@@ -59,7 +71,7 @@
             </g>
         </svg>
     </div>
-    <form action="play" method="POST" >
+    <form name="play" action="play">
         <select name="music" required>
             <option value="0">aha          </option>
             <option value="1">america      </option>

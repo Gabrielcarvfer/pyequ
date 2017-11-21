@@ -101,8 +101,8 @@ def main():
                                  "wavFileNumber": 1,
                                  "wavName": "",
                                       })
-    processes = [Process(target=blockReader, args=[controlDictionary, readBlocksQueue]),
-                 Process(target=blockProcessor, args=[controlDictionary, readBlocksQueue, processedBlocksQueue]),
+    #processes = [Process(target=blockReader, args=[controlDictionary, readBlocksQueue]),
+    #             Process(target=blockProcessor, args=[controlDictionary, readBlocksQueue, processedBlocksQueue]),
                  Process(target=soundPlayer, args=[controlDictionary, processedBlocksQueue, sampleQueue]),
                  Process(target=bottle_server.start_serv, args=[controlDictionary, readBlocksQueue, processedBlocksQueue, sampleQueue])]
 
