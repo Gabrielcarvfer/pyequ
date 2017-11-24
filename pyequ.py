@@ -12,15 +12,15 @@ def blockReader(controlDictionary, outputQueue):
         if not controlDictionary["endOfMusic"]:
             wavFile = openWavFile(controlDictionary["wavName"])
 
-            chunk = wavFile.readframes(controlDictionary["chunkSize"])
+            chunk = wavFile.readframes(2*controlDictionary["chunkSize"])
             outputQueue.put(chunk)
 
-            while chunk:
+            while chunk and wavFile.tell():
                 if controlDictionary["endOfMusic"]:
                     break
                 while outputQueue.full():
                     pass
-                chunk = wavFile.readframes(controlDictionary["chunkSize"])
+                chunk = wavFile.readframes(2*controlDictionary["chunkSize"])
                 outputQueue.put(chunk)
 
             #controlDictionary["endOfMusic"] = True
@@ -49,8 +49,8 @@ def openWavFile(wavName):
 def prepareStream(wavFile, pyaud, chunkSize):
     stream = pyaud.open(
         format=pyaud.get_format_from_width(wavFile.getsampwidth()),
-        channels=1,  # for whatever reason, 2 channels don't work
-        rate=int(wavFile.getframerate() * 4),  # the default framerate too is bugged
+        channels=2,  # for whatever reason, 2 channels don't work
+        rate=int(wavFile.getframerate()),  # the default framerate too is bugged
         frames_per_buffer=chunkSize,
         output=True
         )
@@ -82,29 +82,85 @@ def soundPlayer(controlDictionary, inputQueue, outputQueue):
         time.sleep(1)
     pyaud.terminate()
 
+def launch_player(controlDictionary, readBlocksQueue, processedBlocksQueue,  sampleQueue):
 
-import bottle_server
+    processes = [Process(target=blockReader, args=[controlDictionary, readBlocksQueue]),
+    Process(target=blockProcessor, args=[controlDictionary, readBlocksQueue, processedBlocksQueue]),
+    Process(target=soundPlayer, args=[controlDictionary, processedBlocksQueue, sampleQueue]),]
+    for process in processes:
+        process.start()
+
+    return processes
+
+
+#import bottle_server
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+
+sampleQueue = []
+def plotter(globalSampleQueue):
+    global sampleQueue
+    sampleQueue = globalSampleQueue
+
+
+    def animate(frameno):
+        global sampleQueue
+        x = sampleQueue.get()
+        n, _ = np.histogram(x, bins)#, normed=True)
+        cmap = ['rosybrown',
+                'red',
+                'sienna',
+                'gold',
+                'olivedrab',
+                'darkgreen',
+                'darkcyan',
+                'slategray',
+                'navy',
+                'orange',
+                'darkviolet',
+                'lightskyblue',
+                ]
+        i = 0
+        for h, rect in zip(n, patches):
+            rect.set_height(h)
+            plt.setp(rect, 'facecolor', cmap[i])
+            i += 1
+
+
+
+    fig, ax = plt.subplots()
+    x = sampleQueue.get()
+
+    n, bins, patches = plt.hist(x, 10, alpha=0.75)
+
+    ani = animation.FuncAnimation(fig, animate, blit=False, interval=100, repeat=False)
+    plt.show()
+
 
 def main():
     freeze_support()
 
-    readBlocksQueue = Queue()
-    processedBlocksQueue = Queue()
-    sampleQueue = Queue()
-    MAX_NUM_BLOCKS = 20
+
+    MAX_NUM_BLOCKS = 30000
+    readBlocksQueue = Queue(maxsize=MAX_NUM_BLOCKS)
+    processedBlocksQueue = Queue(maxsize=MAX_NUM_BLOCKS)
+    sampleQueue = Queue(maxsize=MAX_NUM_BLOCKS)
     manager = Manager()
     controlDictionary = manager.dict({
-                                 "chunkSize": 1024,
+                                 "chunkSize": 2048,
                                  "endOfProgramBool": False,
                                  "endOfMusic": False,
-                                 "playingBool": False,
-                                 "wavFileNumber": 1,
-                                 "wavName": "",
+                                 "playingBool": True,
+                                 "wavFileNumber": 3,
+                                 "wavName": "samples/chilly_sample.wav",
                                       })
-    #processes = [Process(target=blockReader, args=[controlDictionary, readBlocksQueue]),
-    #             Process(target=blockProcessor, args=[controlDictionary, readBlocksQueue, processedBlocksQueue]),
+    processes = [Process(target=blockReader, args=[controlDictionary, readBlocksQueue]),
+                 Process(target=blockProcessor, args=[controlDictionary, readBlocksQueue, processedBlocksQueue]),
                  Process(target=soundPlayer, args=[controlDictionary, processedBlocksQueue, sampleQueue]),
-                 Process(target=bottle_server.start_serv, args=[controlDictionary, readBlocksQueue, processedBlocksQueue, sampleQueue])]
+                 #Process(target=plotter, args=[sampleQueue])
+                 ]
+                 #Process(target=bottle_server.start_serv, args=[controlDictionary, readBlocksQueue, processedBlocksQueue, sampleQueue])]
 
     for process in processes:
         process.start()
