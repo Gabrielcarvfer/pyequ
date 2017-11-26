@@ -1,4 +1,3 @@
-
 import wave
 import pyaudio
 from multiprocessing import Process, Queue, Value, Manager, freeze_support
@@ -11,7 +10,7 @@ from signal_proc import processChunk
 
 # Process that reads chunks to fill a 5 block list
 def blockReader(controlDictionary, outputQueue):
-    if not controlDictionary["endOfMusic"]:
+    while not controlDictionary["endOfMusic"]:
 
         sr, data = wavfile.read(controlDictionary["wavName"], "r")
         controlDictionary["samplingRate"] = sr
@@ -19,9 +18,11 @@ def blockReader(controlDictionary, outputQueue):
         for chunk in chunksList:
             outputQueue.put(chunk)
 
+        time.sleep(300)
         controlDictionary["endOfMusic"] = True
-    time.sleep(1)
+
     return
+
 
 # Process that processes blocks read and save in another list
 def blockProcessor(controlDictionary, inputQueue, outputQueue, gainTable):
@@ -34,8 +35,9 @@ def blockProcessor(controlDictionary, inputQueue, outputQueue, gainTable):
             while outputQueue.full():
                 time.sleep(0.1)
             outputQueue.put(processedBlockWithSamples)
-        time.sleep(1)
+        time.sleep(5)
     return
+
 
 def openWavFile(wavName):
     wavFile = wave.open(wavName, "rb")
@@ -52,6 +54,7 @@ def prepareStream(wavFile, pyaud, chunkSize):
         )
     return stream
 
+
 # Process that executes blocks already processed
 def soundPlayer(controlDictionary, inputQueue, outputQueue, readBlocksQueue):
 
@@ -62,11 +65,14 @@ def soundPlayer(controlDictionary, inputQueue, outputQueue, readBlocksQueue):
                                                 )
     time.sleep(10)
     while not controlDictionary["endOfMusic"] or not inputQueue.empty() or not readBlocksQueue.empty():
-        if controlDictionary['playingBool']:
-            processedBlockWithSamples = inputQueue.get()
-            outputQueue.put(processedBlockWithSamples[1])
-            stream.write(processedBlockWithSamples[0])
-
+        while not inputQueue.empty() or not readBlocksQueue.empty():
+            if controlDictionary['playingBool']:
+                processedBlockWithSamples = inputQueue.get()
+                outputQueue.put(processedBlockWithSamples[1])
+                stream.write(processedBlockWithSamples[0])
+            else:
+                continue
+        time.sleep(10)
     stream.stop_stream()
     stream.close()
 
@@ -74,53 +80,11 @@ def soundPlayer(controlDictionary, inputQueue, outputQueue, readBlocksQueue):
     pyaud.terminate()
     return
 
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-
-sampleQueue = []
-def plotter(globalSampleQueue):
-    global sampleQueue
-    sampleQueue = globalSampleQueue
-
-
-    def animate(frameno):
-        global sampleQueue
-        x = sampleQueue.get()
-        n, _ = np.histogram(x, bins)#, normed=True)
-        cmap = ['rosybrown',
-                'red',
-                'sienna',
-                'gold',
-                'olivedrab',
-                'darkgreen',
-                'darkcyan',
-                'slategray',
-                'navy',
-                'orange',
-                'darkviolet',
-                'lightskyblue',
-                ]
-        i = 0
-        for h, rect in zip(n, patches):
-            rect.set_height(h)
-            plt.setp(rect, 'facecolor', cmap[i])
-            i += 1
-
-
-
-    fig, ax = plt.subplots()
-    x = sampleQueue.get()
-
-    n, bins, patches = plt.hist(x, 10, alpha=0.75)
-
-    ani = animation.FuncAnimation(fig, animate, blit=False, interval=100, repeat=False)
-    plt.show()
 
 if __name__ == '__main__':
     freeze_support()
     def main():
-        MAX_NUM_BLOCKS = 3000
+        MAX_NUM_BLOCKS = 300000
         readBlocksQueue = Queue(maxsize=MAX_NUM_BLOCKS)
         processedBlocksQueue = Queue(maxsize=MAX_NUM_BLOCKS)
         sampleQueue = Queue(maxsize=MAX_NUM_BLOCKS)
@@ -135,20 +99,19 @@ if __name__ == '__main__':
                                      "wavName": "samples/lambert.wav",
                                           })
 
-        gainTable = manager.list([0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        gainTable = manager.list([1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
         import equi
 
         processes = [Process(target=blockReader, args=[controlDictionary, readBlocksQueue]),
-                     Process(target=blockProcessor, args=[controlDictionary, readBlocksQueue, processedBlocksQueue, gainTable]),
+                     #Process(target=blockProcessor, args=[controlDictionary, readBlocksQueue, processedBlocksQueue, gainTable]),
                      Process(target=soundPlayer, args=[controlDictionary, processedBlocksQueue, sampleQueue, readBlocksQueue]),
                      Process(target=equi.qt_load, args=[gainTable, sampleQueue, controlDictionary])
-                     #Process(target=plotter, args=[sampleQueue])
                      ]
-                     #Process(target=bottle_server.start_serv, args=[controlDictionary, readBlocksQueue, processedBlocksQueue, sampleQueue])]
-
 
         for process in processes:
             process.start()
+
+        blockProcessor(controlDictionary, readBlocksQueue, processedBlocksQueue, gainTable)
 
         for process in processes:
             process.join()

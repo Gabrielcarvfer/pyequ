@@ -8,17 +8,20 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 sampleQueue = []
-
+import numpy
+gainTable = []
 
 class Ui_Dialog(object):
+    global gainTable
     progressBars = []
-    gainTable = []
     sampleQueue = []
     controlDictionary = []
-    def setupUi(self, Dialog, globalGainTable, globalSampleQueue, globalControlDictionary):
+    calcGain = []
+
+    def setupUi(self, Dialog, globalSampleQueue, globalControlDictionary):
         self.controlDictionary = globalControlDictionary
-        self.gainTable = globalGainTable
         self.sampleQueue = globalSampleQueue
+        self.calcGain = [numpy.exp(x / 10) for x in numpy.arange(start=-6, stop=6, step=0.12)]
         Dialog.setObjectName("Dialog")
         Dialog.resize(330, 300)
         self.progressBar = QtWidgets.QProgressBar(Dialog)
@@ -173,25 +176,25 @@ class Ui_Dialog(object):
 
 
     def updateGain(self):
-        self.gainTable[0] = (self.verticalSlider.value() - 50) / 16.5
+        gainTable[0] = self.calcGain[self.verticalSlider.value() ]
     def updateGain_2(self):
-        self.gainTable[1] = (self.verticalSlider_2.value() - 50) / 16.5
+        gainTable[1] = self.calcGain[self.verticalSlider_2.value()]
     def updateGain_3(self):
-        self.gainTable[2] = (self.verticalSlider_3.value() - 50) / 16.5
+        gainTable[2] = self.calcGain[self.verticalSlider_3.value()]
     def updateGain_4(self):
-        self.gainTable[3] = (self.verticalSlider_4.value() - 50) / 16.5
+        gainTable[3] = self.calcGain[self.verticalSlider_4.value()]
     def updateGain_5(self):
-        self.gainTable[4] = (self.verticalSlider_5.value() - 50) / 16.5
+        gainTable[4] = self.calcGain[self.verticalSlider_5.value()]
     def updateGain_6(self):
-        self.gainTable[5] = (self.verticalSlider_6.value() - 50) / 16.5
+        gainTable[5] = self.calcGain[self.verticalSlider_6.value()]
     def updateGain_7(self):
-        self.gainTable[6] = (self.verticalSlider_7.value() - 50) / 16.5
+        gainTable[6] = self.calcGain[self.verticalSlider_7.value()]
     def updateGain_8(self):
-        self.gainTable[7] = (self.verticalSlider_8.value() - 50) / 16.5
+        gainTable[7] = self.calcGain[self.verticalSlider_8.value()]
     def updateGain_9(self):
-        self.gainTable[8] = (self.verticalSlider_9.value() - 50) / 16.5
+        gainTable[8] = self.calcGain[self.verticalSlider_9.value()]
     def updateGain_10(self):
-        self.gainTable[9] = (self.verticalSlider_10.value() - 50) / 16.5
+        gainTable[9] = self.calcGain[self.verticalSlider_10.value()]
 
     def updateProgress(self):
         if not self.sampleQueue.empty():
@@ -207,11 +210,13 @@ class Ui_Dialog(object):
         self.pushButton_2.setText(_translate("Dialog", "Pausar"))
 
 
-def qt_load(gainTable, sampleQueue, controlDictionary):
+def qt_load(globalGainTable, sampleQueue, controlDictionary):
+    global gainTable
+    gainTable = globalGainTable
     app = QtWidgets.QApplication([""])
     Dialog = QtWidgets.QDialog()
     ui = Ui_Dialog()
-    ui.setupUi(Dialog, gainTable, sampleQueue, controlDictionary)
+    ui.setupUi(Dialog, sampleQueue, controlDictionary)
     Dialog.show()
     app.exec_()
     pass
