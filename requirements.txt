@@ -1,0 +1,11 @@
+cycler==0.10.0
+matplotlib==2.1.0
+numpy==1.13.3
+PyAudio==0.2.11
+pyparsing==2.2.0
+PyQt5==5.9.2
+python-dateutil==2.6.1
+pytz==2017.3
+scipy==1.0.0
+sip==4.19.6
+six==1.11.0

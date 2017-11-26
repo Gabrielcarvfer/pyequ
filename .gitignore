@@ -2,4 +2,8 @@ venv/
 venv1/
 venv2/
 debug.log
-.idea
+.idea/
+*.pyc
+*.wav
+__pycache__/
+*.tpl

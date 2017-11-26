@@ -1,6 +1,10 @@
 import struct
 import numpy
-import array
+import scipy.signal as sig
+import random
+import matplotlib.pyplot as plt
+from multiprocessing import Pool
+
 bands = [55,
          110,
          220,
@@ -12,9 +16,7 @@ bands = [55,
          14080,
          18065]
 
-from multiprocessing import Process, Queue
 
-import scipy.signal as sig
 
 max16bitVal = 65535/2
 
@@ -96,10 +98,34 @@ windowed_filters = {}
 def filter_channel(filter, chunk, channel, gain):
     return sig.convolve(filter, [x[channel] for x in chunk[:]]) * (1 + gain)
 
-import random
-from operator import add
-import matplotlib.pyplot as plt
+
+def filter_band(j, bands, nyquistFrequency, chunk, gainTable):
+    ft = bands[j] / nyquistFrequency
+    w = 2 * numpy.pi * ft
+    M = 100
+
+    # Se filtro da banda ainda não foi calculado, calcule
+    windowed_filters = generate_filter(j, w, M + 1)  # sig.firwin(M+1, cutoff=ft, window='hann')
+    sig.freqz(windowed_filters)
+
+    # Processa canal esquerdo e direito
+    left_channel = filter_channel(windowed_filters, chunk, 0, gainTable[j])
+    right_channel = filter_channel(windowed_filters, chunk, 1, gainTable[j])
+
+    # Junta canais
+    after_process = []
+    for x, y in zip(left_channel, right_channel):
+        after_process.append((x, y))
+
+    # Plota sinal de entrada e parcial processado
+    # plot_signals(chunk, after_process, 250)
+
+    # Envia band processada para fila
+    return after_process
+
+
 def processChunk(block, chunkSize, samplingRate, gainTable):
+
     global windowed_filters
 
     # Preenche ultimo bloco com zeros para manter tamanho
@@ -108,46 +134,31 @@ def processChunk(block, chunkSize, samplingRate, gainTable):
     else:
         chunk = block
 
-    final_signal = [(0, 0)] * chunkSize
-
     # Frequência de Nyquist
     fs = samplingRate / 2
+    final_signal = []
+    result = []
 
     # Aplica filtro para cada banda
     for j in range(len(bands)):
-        ft = bands[j] / fs
-        w = 2 * numpy.pi * ft
-        M = 100
+        result.append(filter_band(j, bands, fs, chunk, gainTable))
 
-        # Se filtro da banda ainda não foi calculado, calcule
-        if j not in windowed_filters.keys():
-            windowed_filters[j] = generate_filter(j, w, M+1)#sig.firwin(M+1, cutoff=ft, window='hann')
-            sig.freqz(windowed_filters[j])
-
-        left = Queue()
-        right = Queue()
-
-        # Processa canal esquerdo e direito
-        left_channel = filter_channel(windowed_filters[j], chunk, 0, gainTable[j])
-        right_channel = filter_channel(windowed_filters[j], chunk, 1, gainTable[j])
-
-        # Junta canais
-        after_process = []
-        for x,y in zip(left_channel, right_channel):
-                after_process.append((x, y))
-
-        # Plota sinal de entrada e parcial processado
-        #plot_signals(chunk, after_process, 250)
+    #result = Pool(2).starmap(filter_band, [[j, bands, fs, chunk, gainTable] for j in range(len(bands))])
+    samples = []
+    # Aplica filtro para cada banda
+    for j in range(len(bands)):
+        # Get max audio samples
+        val1 = max([abs(x[0]) for x in result[j]])
+        val2 = max([abs(x[1]) for x in result[j]])
+        samples.append(max(val1, val2))
 
         # Soma dados parciais no container final, com os dois canais interpostos
-        if j == 0:
-            final_signal = after_process
-            #plot_signals(chunk, after_process, 250)
+        if len(final_signal) == 0:
+            final_signal = result[j]
+            # plot_signals(chunk, after_process, 250)
         else:
             fsig = final_signal
-            final_signal = numpy.add(fsig, after_process)
-
-        pass
+            final_signal = numpy.add(fsig, result[j])
 
     # Normalize signal
     val1 = max([abs(x[0]) for x in final_signal[:]])
@@ -165,12 +176,7 @@ def processChunk(block, chunkSize, samplingRate, gainTable):
     # Transforma array em stream wav
     processedBlock = complex_to_byte(final_signal)
 
-    #y = []
-    #for band in bands:
-    #    bandY = numpy.convolve(x, window() * filter(band))
-    #    y += bandY
-    #samples = [1] * 12
-    samples = []
-    for i in range(10):
-            samples.append(random.randrange(1.0, 100.0, 10.0, int))
+    # Adjust collected samples
+    for j in range(len(bands)):
+        samples[j] = int(samples[j]*100/max16bitVal)
     return [processedBlock, samples]

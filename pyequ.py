@@ -1,3 +1,4 @@
+
 import wave
 import pyaudio
 from multiprocessing import Process, Queue, Value, Manager, freeze_support
@@ -14,7 +15,8 @@ def blockReader(controlDictionary, outputQueue):
 
         sr, data = wavfile.read(controlDictionary["wavName"], "r")
         controlDictionary["samplingRate"] = sr
-        for chunk in numpy.split(data, [i*controlDictionary["chunkSize"] for i in range(1,int(len(data)/controlDictionary["chunkSize"])+1)]):
+        chunksList = numpy.split(data, [i*controlDictionary["chunkSize"] for i in range(1,int(len(data)/controlDictionary["chunkSize"])+1)])
+        for chunk in chunksList:
             outputQueue.put(chunk)
 
         controlDictionary["endOfMusic"] = True
@@ -51,7 +53,7 @@ def prepareStream(wavFile, pyaud, chunkSize):
     return stream
 
 # Process that executes blocks already processed
-def soundPlayer(controlDictionary, inputQueue, outputQueue):
+def soundPlayer(controlDictionary, inputQueue, outputQueue, readBlocksQueue):
 
     pyaud = pyaudio.PyAudio()
     stream = prepareStream(openWavFile(controlDictionary["wavName"]),
@@ -59,7 +61,7 @@ def soundPlayer(controlDictionary, inputQueue, outputQueue):
                                                 controlDictionary["chunkSize"]
                                                 )
     time.sleep(10)
-    while not controlDictionary["endOfMusic"] or not inputQueue.empty():
+    while not controlDictionary["endOfMusic"] or not inputQueue.empty() or not readBlocksQueue.empty():
         if controlDictionary['playingBool']:
             processedBlockWithSamples = inputQueue.get()
             outputQueue.put(processedBlockWithSamples[1])
@@ -72,19 +74,6 @@ def soundPlayer(controlDictionary, inputQueue, outputQueue):
     pyaud.terminate()
     return
 
-
-def launch_player(controlDictionary, readBlocksQueue, processedBlocksQueue,  sampleQueue):
-
-    processes = [Process(target=blockReader, args=[controlDictionary, readBlocksQueue]),
-    Process(target=blockProcessor, args=[controlDictionary, readBlocksQueue, processedBlocksQueue]),
-    Process(target=soundPlayer, args=[controlDictionary, processedBlocksQueue, sampleQueue]),]
-    for process in processes:
-        process.start()
-
-    return processes
-
-
-#import bottle_server
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -128,51 +117,47 @@ def plotter(globalSampleQueue):
     ani = animation.FuncAnimation(fig, animate, blit=False, interval=100, repeat=False)
     plt.show()
 
-
-def main():
-    freeze_support()
-
-
-    MAX_NUM_BLOCKS = 300
-    readBlocksQueue = Queue(maxsize=MAX_NUM_BLOCKS)
-    processedBlocksQueue = Queue(maxsize=MAX_NUM_BLOCKS)
-    sampleQueue = Queue(maxsize=MAX_NUM_BLOCKS)
-    manager = Manager()
-    controlDictionary = manager.dict({
-                                 "chunkSize": 5000,
-                                 "samplingRate": 44100,
-                                 "endOfProgramBool": False,
-                                 "endOfMusic": False,
-                                 "playingBool": True,
-                                 "wavFileNumber": 3,
-                                 "wavName": "samples/chilly_sample.wav",
-                                      })
-
-    gainTable = manager.list([0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-    import equi
-
-    processes = [Process(target=blockReader, args=[controlDictionary, readBlocksQueue]),
-                 Process(target=blockProcessor, args=[controlDictionary, readBlocksQueue, processedBlocksQueue, gainTable]),
-                 Process(target=soundPlayer, args=[controlDictionary, processedBlocksQueue, sampleQueue]),
-                 #Process(target=equi.qt_load, args=[gainTable, sampleQueue, controlDictionary])
-                 #Process(target=plotter, args=[sampleQueue])
-                 ]
-                 #Process(target=bottle_server.start_serv, args=[controlDictionary, readBlocksQueue, processedBlocksQueue, sampleQueue])]
-
-
-    for process in processes:
-        process.start()
-
-
-
-    for process in processes:
-        process.join()
-
-    return
-
-import profile
-# Execute
 if __name__ == '__main__':
+    freeze_support()
+    def main():
+        MAX_NUM_BLOCKS = 3000
+        readBlocksQueue = Queue(maxsize=MAX_NUM_BLOCKS)
+        processedBlocksQueue = Queue(maxsize=MAX_NUM_BLOCKS)
+        sampleQueue = Queue(maxsize=MAX_NUM_BLOCKS)
+        manager = Manager()
+        controlDictionary = manager.dict({
+                                     "chunkSize": 5000,
+                                     "samplingRate": 44100,
+                                     "endOfProgramBool": False,
+                                     "endOfMusic": False,
+                                     "playingBool": False,
+                                     "wavFileNumber": 3,
+                                     "wavName": "samples/lambert.wav",
+                                          })
+
+        gainTable = manager.list([0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        import equi
+
+        processes = [Process(target=blockReader, args=[controlDictionary, readBlocksQueue]),
+                     Process(target=blockProcessor, args=[controlDictionary, readBlocksQueue, processedBlocksQueue, gainTable]),
+                     Process(target=soundPlayer, args=[controlDictionary, processedBlocksQueue, sampleQueue, readBlocksQueue]),
+                     Process(target=equi.qt_load, args=[gainTable, sampleQueue, controlDictionary])
+                     #Process(target=plotter, args=[sampleQueue])
+                     ]
+                     #Process(target=bottle_server.start_serv, args=[controlDictionary, readBlocksQueue, processedBlocksQueue, sampleQueue])]
+
+
+        for process in processes:
+            process.start()
+
+        for process in processes:
+            process.join()
+
+        return
+
+    import profile
+    # Execute
+
     main()
 
     #profile.run('main()')
