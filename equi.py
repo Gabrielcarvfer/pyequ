@@ -158,16 +158,16 @@ class Ui_Dialog(object):
                              self.progressBar_10,]
 
 
-        self.verticalSlider.valueChanged.connect(self.updateGain)
-        self.verticalSlider_2.valueChanged.connect(self.updateGain_2)
-        self.verticalSlider_3.valueChanged.connect(self.updateGain_3)
-        self.verticalSlider_4.valueChanged.connect(self.updateGain_4)
-        self.verticalSlider_5.valueChanged.connect(self.updateGain_5)
-        self.verticalSlider_6.valueChanged.connect(self.updateGain_6)
-        self.verticalSlider_7.valueChanged.connect(self.updateGain_7)
-        self.verticalSlider_8.valueChanged.connect(self.updateGain_8)
-        self.verticalSlider_9.valueChanged.connect(self.updateGain_9)
-        self.verticalSlider_10.valueChanged.connect(self.updateGain_10)
+        self.verticalSlider.sliderReleased.connect(self.updateGain)
+        self.verticalSlider_2.sliderReleased.connect(self.updateGain_2)
+        self.verticalSlider_3.sliderReleased.connect(self.updateGain_3)
+        self.verticalSlider_4.sliderReleased.connect(self.updateGain_4)
+        self.verticalSlider_5.sliderReleased.connect(self.updateGain_5)
+        self.verticalSlider_6.sliderReleased.connect(self.updateGain_6)
+        self.verticalSlider_7.sliderReleased.connect(self.updateGain_7)
+        self.verticalSlider_8.sliderReleased.connect(self.updateGain_8)
+        self.verticalSlider_9.sliderReleased.connect(self.updateGain_9)
+        self.verticalSlider_10.sliderReleased.connect(self.updateGain_10)
 
 
         self.timer = QtCore.QTimer()
