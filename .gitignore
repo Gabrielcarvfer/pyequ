@@ -7,3 +7,4 @@ debug.log
 *.wav
 __pycache__/
 *.tpl
+*.mp3

@@ -96,7 +96,7 @@ if __name__ == '__main__':
                                      "endOfMusic": False,
                                      "playingBool": False,
                                      "wavFileNumber": 3,
-                                     "wavName": "samples/lambert.wav",
+                                     "wavName": "samples/penguin.wav",
                                           })
 
         gainTable = manager.list([1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
