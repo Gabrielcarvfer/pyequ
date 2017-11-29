@@ -141,10 +141,10 @@ class Ui_Dialog(object):
         self.label.setText("+12dB")
         self.label = QtWidgets.QLabel(Dialog)
         self.label.setGeometry(QtCore.QRect(2, 140, 35, 101))
-        self.label.setText("0dB")
+        self.label.setText("    0dB")
         self.label = QtWidgets.QLabel(Dialog)
         self.label.setGeometry(QtCore.QRect(2, 180, 35, 101))
-        self.label.setText("-12dB")
+        self.label.setText("  -12dB")
 
         self.progressBars = [self.progressBar,
                              self.progressBar_2,

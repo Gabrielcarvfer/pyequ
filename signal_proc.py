@@ -29,9 +29,14 @@ bands = [32,
          ]
 
 
-
+windowed_filters = {}
+windowed_filters_fft = {}
+overlapped_chunks = {}
 
 max16bitVal = 65535/2
+
+filler = numpy.asarray([0.0] * 4900)
+
 
 def plot_signals(sig1, sig2, samples):
     plt.subplot(2, 1, 1)
@@ -79,7 +84,6 @@ def passband(N, w1, w2):
             #y.append((numpy.sin(w1*n)-numpy.sin(w2*n))/(numpy.pi*n))
 
     return y
-windowed_filters = {}
 
 def generate_filter(j, w, N):
     global bands, windowed_filters
@@ -90,11 +94,10 @@ def generate_filter(j, w, N):
         elif j == len(bands) - 1:
             filter = highpass(N, w)
         else:
-            filter = passband(N, w * 0.75, w * 1.25)
+            filter = passband(N, w * 0.65, w * 1.55)
         windowed_filters[j] = filter
-    else:
-        filter = windowed_filters[j]
-    return filter
+        windowed_filters_fft[j] = numpy.fft.fft(filter)
+    return
 
 def hamming(M, alpha):
     y = []
@@ -104,15 +107,24 @@ def hamming(M, alpha):
             y.append(1)
         else:
             y.append(alpha + (1-alpha)*numpy.cos(2*numpy.pi*n/M))
-
-
     return y
 
 
+def filter_channels(band, chunk, gain=1):
+    global windowed_filters, windowed_filters_fft
+    #Linear convolution -> generates noise because of blocking
+    #return numpy.multiply(numpy.convolve(windowed_filters[band], [x[channel] for x in chunk[:]]), gain)
 
+    #Circular convolve with FFT, using with overlap and add
+    left_filtered  = numpy.multiply(numpy.convolve(windowed_filters[band], [x[0] for x in chunk[:]], mode='full'), gain)
+    right_filtered = numpy.multiply(numpy.convolve(windowed_filters[band], [x[1] for x in chunk[:]], mode='full'), gain)
 
-def filter_channel(filter, chunk, channel, gain=1):
-    return numpy.multiply(sig.convolve(filter, [x[channel] for x in chunk[:]]), gain)
+    return [ left_filtered[:len(chunk)], #First N parts
+            right_filtered[:len(chunk)],
+             left_filtered[len(chunk):len(left_filtered)], #Part that is going to be overlapped on next block
+            right_filtered[len(chunk):len(right_filtered)]
+            ]
+
 
 
 def filter_band(j, bands, nyquistFrequency, chunk, gainTable):
@@ -121,34 +133,29 @@ def filter_band(j, bands, nyquistFrequency, chunk, gainTable):
     M = 100
 
     # Se filtro da banda ainda não foi calculado, calcule
-    windowed_filters = generate_filter(j, w, M + 1)  # sig.firwin(M+1, cutoff=ft, window='hann')
-    sig.freqz(windowed_filters)
+    generate_filter(j, w, M + 1)  # sig.firwin(M+1, cutoff=ft, window='hann')
+    #sig.freqz(windowed_filters)
 
     # Processa canal esquerdo e direito
-    left_channel = filter_channel(windowed_filters, chunk, 0, gainTable[j])
-    right_channel = filter_channel(windowed_filters, chunk, 1, gainTable[j])
-
-    # Junta canais
-    #after_process = []
-    #for x, y in zip(left_channel, right_channel):
-    #    after_process.append((x, y))
-
-    # Plota sinal de entrada e parcial processado
-    # plot_signals(chunk, after_process, 250)
+    filtered_band_and_overlaps  = filter_channels(band=j, chunk=chunk, gain=gainTable[j])
 
     # Envia band processada para fila
-    return [left_channel, right_channel] #after_process
+    return filtered_band_and_overlaps #after_process
 
 
 from multiprocessing import Queue, Process
 def processChunk(block, chunkSize, samplingRate, gainTable):
-    global windowed_filters
+    global windowed_filters, overlapped_chunks
 
     # Preenche ultimo bloco com zeros para manter tamanho
     if len(block) < chunkSize:
         chunk = numpy.concatenate((block, numpy.asarray([(0, 0)] * (chunkSize-len(block)))))
     else:
         chunk = block
+
+    if len(overlapped_chunks) == 0:
+        for j in range(len(bands)):
+            overlapped_chunks[j] = numpy.asarray([[0]*chunkSize,[0]*chunkSize])
 
     # Frequência de Nyquist
     fs = samplingRate / 2
@@ -157,7 +164,12 @@ def processChunk(block, chunkSize, samplingRate, gainTable):
 
     # Aplica filtro para cada banda
     for j in numpy.arange(len(bands)):
-        result.append(filter_band(j, bands, fs, chunk, gainTable))
+        res = filter_band(j, bands, fs, chunk, gainTable)
+        resulting_left  = numpy.add(res[0], overlapped_chunks[j][0])
+        resulting_right = numpy.add(res[1], overlapped_chunks[j][1])
+        overlapped_chunks[j][0] = numpy.concatenate((res[2], filler))
+        overlapped_chunks[j][1] = numpy.concatenate((res[3], filler))
+        result.append([resulting_left,resulting_right])
 
     samples = []
     valmaxleft = 0
@@ -186,10 +198,10 @@ def processChunk(block, chunkSize, samplingRate, gainTable):
         for x in numpy.arange(len(final_signal[0])):
             final_signal[0][x] *= adjust
 
-    if valmaxright > max16bitVal:
-        adjust = (max16bitVal / valmaxright)
-        for x in numpy.arange(len(final_signal[1])):
-            final_signal[1][x] *= adjust
+    #if valmaxright > max16bitVal:
+    #    adjust = (max16bitVal / valmaxright)
+    #    for x in numpy.arange(len(final_signal[1])):
+    #        final_signal[1][x] *= adjust
 
     # Plota sinais de entrada e saída
     #plot_signals(chunk, final_signal, 1000)
@@ -198,11 +210,10 @@ def processChunk(block, chunkSize, samplingRate, gainTable):
     for x,y in zip(final_signal[0], final_signal[1]):
        after_process.append((x, y))
 
-
     # Transforma array em stream wav
     processedBlock = complex_to_byte(after_process)
 
     # Adjust collected samples
     for j in range(len(bands)):
         samples[j] = int(samples[j]*100/max16bitVal)
-    return [processedBlock, samples]
+    return [processedBlock, samples], after_process

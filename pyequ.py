@@ -18,7 +18,7 @@ def blockReader(controlDictionary, outputQueue):
         for chunk in chunksList:
             outputQueue.put(chunk)
 
-        time.sleep(300)
+        time.sleep(1)
         controlDictionary["endOfMusic"] = True
 
     return
@@ -26,16 +26,19 @@ def blockReader(controlDictionary, outputQueue):
 
 # Process that processes blocks read and save in another list
 def blockProcessor(controlDictionary, inputQueue, outputQueue, gainTable):
+    outputData = []
     while not controlDictionary["endOfMusic"] or not inputQueue.empty():
         while not inputQueue.empty():
             block = inputQueue.get()
 
-            processedBlockWithSamples = processChunk(block, controlDictionary["chunkSize"], controlDictionary["samplingRate"], gainTable)
-
+            processedBlockWithSamples, afterProcess = processChunk(block, controlDictionary["chunkSize"], controlDictionary["samplingRate"], gainTable)
+            outputData += afterProcess
             while outputQueue.full():
                 time.sleep(0.1)
             outputQueue.put(processedBlockWithSamples)
         time.sleep(5)
+
+    wavfile.write("output.wav", 44100, numpy.asarray(outputData,dtype=numpy.int16))
     return
 
 
@@ -47,8 +50,8 @@ def openWavFile(wavName):
 def prepareStream(wavFile, pyaud, chunkSize):
     stream = pyaud.open(
         format=pyaud.get_format_from_width(wavFile.getsampwidth()),
-        channels=2,  # for whatever reason, 2 channels don't work
-        rate=int(wavFile.getframerate()*2),  # the default framerate too is bugged
+        channels=1,  # for whatever reason, 2 channels don't work
+        rate=int(wavFile.getframerate()*4),  # the default framerate too is bugged
         frames_per_buffer=chunkSize,
         output=True
         )
@@ -59,11 +62,11 @@ def prepareStream(wavFile, pyaud, chunkSize):
 def soundPlayer(controlDictionary, inputQueue, outputQueue, readBlocksQueue):
 
     pyaud = pyaudio.PyAudio()
-    stream = prepareStream(openWavFile(controlDictionary["wavName"]),
+    inputWav = openWavFile(controlDictionary["wavName"])
+    stream = prepareStream(inputWav,
                                                 pyaud,
                                                 controlDictionary["chunkSize"]
                                                 )
-    time.sleep(10)
     while not controlDictionary["endOfMusic"] or not inputQueue.empty() or not readBlocksQueue.empty():
         while not inputQueue.empty() or not readBlocksQueue.empty():
             if controlDictionary['playingBool']:
@@ -84,7 +87,7 @@ def soundPlayer(controlDictionary, inputQueue, outputQueue, readBlocksQueue):
 if __name__ == '__main__':
     freeze_support()
     def main():
-        MAX_NUM_BLOCKS = 300000
+        MAX_NUM_BLOCKS = 300
         readBlocksQueue = Queue(maxsize=MAX_NUM_BLOCKS)
         processedBlocksQueue = Queue(maxsize=MAX_NUM_BLOCKS)
         sampleQueue = Queue(maxsize=MAX_NUM_BLOCKS)
@@ -96,7 +99,7 @@ if __name__ == '__main__':
                                      "endOfMusic": False,
                                      "playingBool": False,
                                      "wavFileNumber": 3,
-                                     "wavName": "samples/penguin.wav",
+                                     "wavName": "samples/chilly_sample.wav",
                                           })
 
         gainTable = manager.list([1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
