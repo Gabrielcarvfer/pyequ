@@ -94,7 +94,7 @@ def generate_filter(j, w, N):
         elif j == len(bands) - 1:
             filter = highpass(N, w)
         else:
-            filter = passband(N, w * 0.65, w * 1.55)
+            filter = passband(N, w * 0.65, w * 1.40)
         windowed_filters[j] = filter
         windowed_filters_fft[j] = numpy.fft.fft(filter)
     return
