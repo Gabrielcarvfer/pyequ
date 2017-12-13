@@ -1,0 +1,1 @@
+lame --decode input.mp3 output.wav

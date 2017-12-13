@@ -1,1 +1,0 @@
-bash -c "lame --decode input.mp3 output.mp3"

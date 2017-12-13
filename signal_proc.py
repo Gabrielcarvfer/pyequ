@@ -85,19 +85,6 @@ def passband(N, w1, w2):
 
     return y
 
-def generate_filter(j, w, N):
-    global bands, windowed_filters
-
-    if j not in windowed_filters.keys():
-        if j == 0:
-            filter = lowpass(N, w)
-        elif j == len(bands) - 1:
-            filter = highpass(N, w)
-        else:
-            filter = passband(N, w * 0.65, w * 1.55)
-        windowed_filters[j] = filter
-        windowed_filters_fft[j] = numpy.fft.fft(filter)
-    return
 
 def hamming(M, alpha):
     y = []
@@ -108,6 +95,41 @@ def hamming(M, alpha):
         else:
             y.append(alpha + (1-alpha)*numpy.cos(2*numpy.pi*n/M))
     return y
+
+
+def generate_filter(j, w, N):
+    global bands, windowed_filters
+
+    if j not in windowed_filters.keys():
+        if j == 0:
+            filter = lowpass(N, w * 1.40)
+        elif j == len(bands) - 1:
+            filter = highpass(N, w * 0.70)
+        else:
+            filter = passband(N, w * 0.70, w * 1.40) #* numpy.asarray(hamming(N, 0.54))
+        windowed_filters[j] = filter
+        windowed_filters_fft[j] = numpy.fft.fft(filter)
+
+        #Plot filter frequency response
+        w, h = sig.freqz(windowed_filters[j])
+        import matplotlib.pyplot as plt
+        fig = plt.figure()
+        plt.title('Digital filter frequency response')
+        ax1 = fig.add_subplot(111)
+        plt.plot(numpy.abs(w), 20 * numpy.log10(abs(h)), 'b')
+        plt.ylabel('Amplitude [dB]', color='b')
+        plt.xlabel('Frequency [rad/sample]')
+        ax2 = ax1.twinx()
+        angles = numpy.unwrap(numpy.angle(h))
+        plt.plot(w, angles, 'g')
+        plt.ylabel('Angle (radians)', color='g')
+        plt.grid()
+        plt.axis('tight')
+        plt.show()
+
+    return
+
+
 
 
 def filter_channels(band, chunk, gain=1):
@@ -134,7 +156,6 @@ def filter_band(j, bands, nyquistFrequency, chunk, gainTable):
 
     # Se filtro da banda ainda não foi calculado, calcule
     generate_filter(j, w, M + 1)  # sig.firwin(M+1, cutoff=ft, window='hann')
-    #sig.freqz(windowed_filters)
 
     # Processa canal esquerdo e direito
     filtered_band_and_overlaps  = filter_channels(band=j, chunk=chunk, gain=gainTable[j])
@@ -198,10 +219,10 @@ def processChunk(block, chunkSize, samplingRate, gainTable):
         for x in numpy.arange(len(final_signal[0])):
             final_signal[0][x] *= adjust
 
-    #if valmaxright > max16bitVal:
-    #    adjust = (max16bitVal / valmaxright)
-    #    for x in numpy.arange(len(final_signal[1])):
-    #        final_signal[1][x] *= adjust
+    if valmaxright > max16bitVal:
+        adjust = (max16bitVal / valmaxright)
+        for x in numpy.arange(len(final_signal[1])):
+            final_signal[1][x] *= adjust
 
     # Plota sinais de entrada e saída
     #plot_signals(chunk, final_signal, 1000)

@@ -7,6 +7,8 @@
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtWidgets import QFileDialog
+
 sampleQueue = []
 import numpy
 gainTable = []
@@ -21,7 +23,7 @@ class Ui_Dialog(object):
     def setupUi(self, Dialog, globalSampleQueue, globalControlDictionary):
         self.controlDictionary = globalControlDictionary
         self.sampleQueue = globalSampleQueue
-        self.calcGain = [numpy.exp(x / 10) for x in numpy.arange(start=-12, stop=12, step=0.24)]
+        self.calcGain = [numpy.power(10, x / 20) for x in numpy.arange(start=-12, stop=12, step=0.24)]
         Dialog.setObjectName("Dialog")
         Dialog.resize(350, 300)
         self.progressBar = QtWidgets.QProgressBar(Dialog)
@@ -134,6 +136,11 @@ class Ui_Dialog(object):
         self.pushButton_2.setGeometry(QtCore.QRect(90, 270, 75, 23))
         self.pushButton_2.setObjectName("pushButton_2")
         self.pushButton_2.clicked.connect(self.pause)
+        self.pushButton_3 = QtWidgets.QPushButton(Dialog)
+        self.pushButton_3.setGeometry(QtCore.QRect(170, 270, 95, 23))
+        self.pushButton_3.setObjectName("pushButton_3")
+        self.pushButton_3.clicked.connect(self.selectFile)
+
 
 
         self.label = QtWidgets.QLabel(Dialog)
@@ -141,10 +148,10 @@ class Ui_Dialog(object):
         self.label.setText("+12dB")
         self.label = QtWidgets.QLabel(Dialog)
         self.label.setGeometry(QtCore.QRect(2, 140, 35, 101))
-        self.label.setText("    0dB")
+        self.label.setText("   0dB")
         self.label = QtWidgets.QLabel(Dialog)
         self.label.setGeometry(QtCore.QRect(2, 180, 35, 101))
-        self.label.setText("  -12dB")
+        self.label.setText(" -12dB")
 
         self.progressBars = [self.progressBar,
                              self.progressBar_2,
@@ -218,9 +225,20 @@ class Ui_Dialog(object):
 
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
-        Dialog.setWindowTitle(_translate("Dialog", "Dialog"))
+        Dialog.setWindowTitle(_translate("Dialog", "PyEqu"))
         self.pushButton.setText(_translate("Dialog", "Tocar"))
         self.pushButton_2.setText(_translate("Dialog", "Pausar"))
+        self.pushButton_3.setText(_translate("Dialog", "Escolher musica"))
+
+    def selectFile(self):
+        import os
+        file = QFileDialog.getOpenFileName()
+        filename, file_extension = os.path.splitext(file[0])
+        self.controlDictionary["wavName"] = filename
+        self.controlDictionary["musicSelected"] = True
+
+
+
 
 
 def qt_load(globalGainTable, sampleQueue, controlDictionary):
