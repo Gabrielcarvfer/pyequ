@@ -185,8 +185,8 @@ def checkDiff(wavFile):
 
 if __name__ == '__main__':
     freeze_support()
-    #main()
-    checkDiff("./samples/luke")
+    main()
+    #checkDiff("./samples/luke")
 
 
 
