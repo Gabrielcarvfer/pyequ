@@ -1,6 +1,6 @@
 cycler==0.10.0
 matplotlib==2.1.0
-numpy==1.13.3
+numpy==1.22.0
 PyAudio==0.2.11
 pyparsing==2.2.0
 PyQt5==5.9.2
